@@ -1,10 +1,11 @@
-import praw
 import argparse
-import xml.etree.cElementTree as et
-import google.generativeai as genai
 import os
 import sys
 import time
+import xml.etree.cElementTree as et
+
+import google.generativeai as genai
+import praw
 
 # subs = ["wallstreetbets", "finance"] #subreddits to be added
 
@@ -55,9 +56,16 @@ def main(numPosts):
                     f = open(f"{dir}/log.txt", "a")
                     f.write(f"Written to postIDLIST: {post.id}\n")
                     f.write("Read message from message.txt\n")
-                    reddit.redditor(submission.author.name).message(subject=f"Hello!)", message=message) #message
-                    f.write(f"sent message to redditor: {post.author.name}\n")
+                    
                     response = model.generate_content(post.title)
+                    
+                    try:
+                        reddit.redditor(submission.author.name).message(subject=f"Hello!", message=message) #message
+                        f.write(f"sent message to redditor: {post.author.name}\n")
+                    except Exception as e:
+                        f.write("Exception: {e}\n")
+                        response = response + "\n\n" + message
+                        
                     submission.reply(response.text) #comment response
                     f.write(f"replied to post: {post.id}\n")
                     
