@@ -42,7 +42,7 @@ def main(numPosts):
     
     for x in subs:
         subreddit = reddit.subreddit(x)
-        root = et.Element(subreddit.title)
+        #root = et.Element(subreddit.title)
         for quest in querys:
             for post in subreddit.search(query=quest, sort="new", limit=nums):
                 if "?" in post.title and not(post.stickied) and not(post.id in ids):
@@ -55,10 +55,10 @@ def main(numPosts):
                     f = open(f"{dir}/log.txt", "a")
                     f.write(f"Written to postIDLIST: {post.id}\n")
                     f.write("Read message from message.txt\n")
-                    #reddit.redditor(submission.author.name).message(subject=f"Hello!)", message=message) #message
+                    reddit.redditor(submission.author.name).message(subject=f"Hello!)", message=message) #message
                     f.write(f"sent message to redditor: {post.author.name}\n")
                     response = model.generate_content(post.title)
-                    #submission.reply(response.text) #comment response
+                    submission.reply(response.text) #comment response
                     f.write(f"replied to post: {post.id}\n")
                     
                     # listing = et.SubElement(root, "title", title=post.title)
