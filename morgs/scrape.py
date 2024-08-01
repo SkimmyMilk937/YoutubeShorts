@@ -1,20 +1,19 @@
 import argparse
 import os
 import sys
-import time
-import xml.etree.cElementTree as et
-
 import google.generativeai as genai
 import praw
+import random
+from elevenlabs.client import ElevenLabs
+from elevenlabs import save
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.editor import *
 
-# subs = ["wallstreetbets", "finance"] #subreddits to be added
+dir = os.getcwd()
 
-# querys = ["Mortgage", "Interest Rate", "Down Payment", "Credit Score", "Pre-Approval", 
-#           "Closing Costs","Real Estate Agent","Home Inspection","Appraisal",
-#           "Homeowners Insurance","Property Taxes","Escrow","Offer", "Negotiation",
-#           "Title","Loan","Equity","FHA Loan","Conventional Loan","Debt-to-Income Ratio"] #search query terms, finds one per post
 def main(numPosts):
-    dir = os.getcwd()
+    
+    clips = os.listdir(f"{dir}/morgs/clips")
     nums = int(numPosts)
 
     GOOGLE_API_KEY=('AIzaSyCJimkb03lG8bCulitXA4dJfwzz07jyMSk')
@@ -31,10 +30,10 @@ def main(numPosts):
                             )
     
     try:
-        subs = open("subreddits.txt", "r").read().splitlines()
-        querys = open("querys.txt", "r").read().splitlines()
-        ids = open("postIDS.txt", "r").read().splitlines()
-        message = open("message.txt", "r").read()
+        subs = open("morgs/subreddits.txt", "r").read().splitlines()
+        querys = open("morgs/querys.txt", "r").read().splitlines()
+        ids = open("morgs/postIDS.txt", "r").read().splitlines()
+        message = open("morgs/message.txt", "r").read()
     except:
         print("Text files are not written :(")
         print("Please fill them in now and then try again")
@@ -43,7 +42,6 @@ def main(numPosts):
     
     for x in subs:
         subreddit = reddit.subreddit(x)
-        #root = et.Element(subreddit.title)
         for quest in querys:
             for post in subreddit.search(query=quest, sort="new", limit=nums):
                 if "?" in post.title and not(post.stickied) and not(post.id in ids):
@@ -57,35 +55,60 @@ def main(numPosts):
                     f.write(f"Written to postIDLIST: {post.id}\n")
                     f.write("Read message from message.txt\n")
                     
-                    response = model.generate_content(post.title)
+                    response = model.generate_content(post.title + "answer should be less than 300 tokens and read like a person is giving advice", safety_settings=True)
+                    text = response.text.replace("**", "")
+                    text.replace("* ", "")
+                    text = (post.title + "\n" + text).replace("\n", "")
+                    f.write(f"Got gemani response. {post.id}")
+                    tts(text, post.id)
+
+                    clipToUse = (random.choice(clips))
+                    clip = VideoFileClip(f"morgs/clips/{clipToUse}")
+                    audioToUse = AudioFileClip(f"{dir}/morgs/speech/{post.id}.mp3") #1efnj42
+                    clip = clip.set_audio(audioToUse)
+                    clip.write_videofile(filename=f"{dir}/morgs/shorts/{clipToUse}", threads=12)
+                    f.write(f"Made video {post.id}")
+                    os.system(f"python YoutubeShorts/youtube_uploader_selenium/upload.py --video=morgs/shorts/{clipToUse} --profile=C:/Users/nicol/AppData/Roaming/Mozilla/Firefox/Profiles/suu68dnw.default-release")
+                    f.write("Uploaded to Youtube")
+                    
+                    response = model.generate_content(post.title) #reddit full length response
                     
                     try:
                         reddit.redditor(submission.author.name).message(subject=f"Hello!", message=message) #message
-                        f.write(f"sent message to redditor: {post.author.name}\n")
+                        f.write(f"Sent message to redditor: {post.author.name}\n")
+                        submission.reply(response.text)
                     except Exception as e:
-                        f.write("Exception: {e}\n")
-                        response = response + "\n\n" + message
+                        f.write("Could not PM reddit, Exception: {e}\n")
+                        submission.reply(response.text + "\n\n" + message) #comment response
                         
-                    submission.reply(response.text) #comment response
                     f.write(f"replied to post: {post.id}\n")
-                    
-                    # listing = et.SubElement(root, "title", title=post.title)
-                    # et.SubElement(listing, "text", text=post.selftext)
-                    # tree = et.ElementTree(root)
-                    # tree.write(f"{dir}/{x}.xml")
+
                 else:
                     nums+=1
                     continue
-                time.sleep(20)
+                # time.sleep(20)
                 
+def tts(text, id):
 
+    client = ElevenLabs(
+    api_key="sk_96dc4bf9a04e1891708d86bd129c580226cc04ffc8818d07" # Defaults to ELEVEN_API_KEY
+    )
+    
+    audio = client.generate(
+        text=text,
+        voice="Ken",
+        model="eleven_multilingual_v2"
+    )
+    
+    
+    save(audio, f"{dir}/morgs/speech/{id}.mp3")
 
 
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--numPosts", help="how many posts for each query in each subreddit", required=True)
+    parser.add_argument("--numPosts", help="how many posts for each query in each subreddit", required=False)
     args = parser.parse_args()
 
-    main( args.numPosts)
+    main(args.numPosts)
     print("Complete")
